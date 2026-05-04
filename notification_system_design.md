@@ -118,3 +118,74 @@ Use **WebSockets** (Socket.io) for real-time delivery.
   }
 }
 ```
+# Stage 2
+
+## Persistent Storage — Database Choice
+
+### Recommended DB: PostgreSQL
+
+---
+
+### DB Schema
+
+```sql
+-- Students Table
+CREATE TABLE students (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  createdAt TIMESTAMP DEFAULT NOW()
+);
+
+-- Notifications Table
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  studentID UUID NOT NULL REFERENCES students(id),
+  notificationType ENUM('Placement', 'Event', 'Result') NOT NULL,
+  message TEXT NOT NULL,
+  isRead BOOLEAN DEFAULT FALSE,
+  createdAt TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+### Problems as Data Volume Increases
+
+1. **Slow queries** — 50,000 students x many notifications = millions of rows
+2. **Full table scan** 
+3. **Storage bloat** 
+
+### Solutions
+
+1. **Indexes lagao** on `studentID` and `createdAt`
+2. **Pagination** 
+3. **Archiving** 
+
+---
+
+### Queries
+
+#### Fetch all unread notifications for a student:
+```sql
+SELECT * FROM notifications
+WHERE studentID = 'uuid-here'
+AND isRead = false
+ORDER BY createdAt DESC;
+```
+
+#### Fetch notifications by type:
+```sql
+SELECT * FROM notifications
+WHERE studentID = 'uuid-here'
+AND notificationType = 'Placement'
+ORDER BY createdAt DESC;
+```
+
+#### Mark all as read:
+```sql
+UPDATE notifications
+SET isRead = true
+WHERE studentID = 'uuid-here'
+AND isRead = false;
+```
