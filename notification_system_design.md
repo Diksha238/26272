@@ -102,10 +102,9 @@
 Use **WebSockets** (Socket.io) for real-time delivery.
 
 **Flow:**
-1. Student logs in → WebSocket connection establish hoti hai
-2. Jab bhi naya notification aata hai server pe → server us student ke socket pe emit karta hai
-3. Frontend instantly notification receive karta hai without page reload
-
+1. Student logs in → WebSocket connection establishes
+2. Whenever notification comes on server→ server emits on that student's socket
+3. Frontend instantly receives notification without page reload
 **WebSocket Event:**
 ```json
 {
