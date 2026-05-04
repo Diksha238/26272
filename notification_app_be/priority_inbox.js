@@ -6,25 +6,20 @@ const headers = {
     "Authorization": `Bearer ${TOKEN}`
 };
 
-// Priority weights as per document
-// Placement > Result > Event
+
 const PRIORITY_WEIGHTS = {
     "Placement": 3,
     "Result": 2,
     "Event": 1
 };
 
-// Score calculate karo — weight + recency combined
 function calculateScore(notification) {
     const weight = PRIORITY_WEIGHTS[notification.Type] || 0;
     const timestamp = new Date(notification.Timestamp).getTime();
-    // Normalize timestamp to 0-1 range (recency score)
     const recencyScore = timestamp / Date.now();
-    // Final score = weight (main factor) + recency (tiebreaker)
     return weight + recencyScore;
 }
 
-// Top N notifications fetch karo by priority
 function getTopN(notifications, n) {
     return notifications
         .map(notif => ({
