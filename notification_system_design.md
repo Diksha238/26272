@@ -254,3 +254,73 @@ FROM notifications
 WHERE notificationType = 'Placement'
 AND createdAt >= NOW() - INTERVAL '7 days';
 ```
+# Stage 4
+
+## Performance Optimization — Notifications Fetching
+
+### Problem:
+On every page load notifications are fetched from DB
+For 50,000 students DB is overwhelming
+
+---
+
+### Solutions:
+
+### 1. Caching (Redis)
+**Strategy:**  Firstly fetch from Db and store on Redis 
+Next time serve from Redis directly.
+```
+Request → Check Redis Cache
+↓ HIT → Return cached data (fast!)
+↓ MISS → Fetch from DB → Store in Redis → Return
+```
+**Tradeoffs:**
+- DB load will drastically get slower
+- Response time will be very fast
+- Cache invalidation is very tricky
+if new notification will come cahce will stale
+  naya notification aaya toh cache stale ho jayega
+-  Extra infrastructure (Redis server)
+
+**Cache Invalidation:**
+-  When new notification comes delete student cache
+-  Set TTL (Time To Live)  — e.g. 60 seconds
+
+---
+
+### 2. Pagination
+Dont't fetch all the notifications at same time
+Fetch in groups of 20 
+```
+GET /api/v1/notifications?page=1&limit=20
+```
+**Tradeoffs:**
+- ✅ There will be less load on DB
+- ✅ Response size will get small
+- ❌ In Frontend we will have to implement pagination logic 
+
+---
+
+### 3. Database Read Replicas
+Write operations primary on DB , read operations on
+replica DB.
+
+**Tradeoffs:**
+- ✅ Primary DB load will get low 
+- ✅ High availability
+- ❌ Replication lag 
+- ❌ Complex setup
+
+---
+
+### 4. CDN / Edge Caching
+chache Static or semi-static notifications on CDN
+
+**Tradeoffs:**
+- ✅ Geographically fast delivery
+- ❌  Not suitable for Dynamic per user data 
+
+---
+
+### Recommended Approach:
+**Redis Caching + Pagination** combination
