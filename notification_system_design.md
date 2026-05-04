@@ -324,3 +324,73 @@ chache Static or semi-static notifications on CDN
 
 ### Recommended Approach:
 **Redis Caching + Pagination** combination
+
+# Stage 5
+
+## Bulk Notification System Redesign
+
+### Original Pseudocode:
+```
+function notify_all(student_ids: array, message: string):
+for student_id in student_ids:
+send_email(student_id, message)   # calls Email API
+save_to_db(student_id, message)   # DB insert
+push_to_app(student_id, message)  # real-time notification
+```
+### Shortcomings:
+1. **Sequential processing** — 50,000 students are processing one by one — very slow
+2. **No error handling** — For 200 students email failed,
+   For every other the process can also slow 
+3. **Tightly coupled** — Push email, DB alltogether—
+   if one gets fail than all fails 
+4. **No retry mechanism** — failed emails dobara nahi bheje
+5. **DB pe hammering** — 50,000 individual inserts — very slow
+6. **Atomicity issue** — email received but DB didn't saved ,
+   or DB saved but not got pushed — inconsistent state
+
+---
+
+### Should email and DB save happen together?
+**NO** 
+- DB save must happen — it is necessary to make notification record 
+- Email is optional — it can get failed,Automatically retry
+- it is dangerous to tightly cover both
+---
+
+### Redesigned Pseudocode:
+```
+function notify_all(student_ids: array, message: string):
+// Step 1: Bulk DB insert — ek query me saara data
+bulk_save_to_db(student_ids, message)
+// Step 2: Message Queue me push karo
+for student_id in student_ids:
+queue.push({
+student_id: student_id,
+message: message,
+type: "email_and_push"
+})
+// Worker processes queue asynchronously
+function worker():
+while queue is not empty:
+job = queue.pop()
+```
+```
+try:
+  send_email(job.student_id, job.message)
+except EmailFailed:
+  queue.push(job, retry_count + 1)  // retry
+  if retry_count > 3:
+    log_failed_email(job.student_id)
+
+try:
+  push_to_app(job.student_id, job.message)
+except PushFailed:
+  log_failed_push(job.student_id)
+```
+### Why this is better:
+- ✅ **Bulk DB insert** — 50,000 rows in one query
+- ✅ **Message Queue** (e.g. RabbitMQ/Redis Queue) —
+  async processing, No load on DB
+- ✅ **Retry mechanism** — failed emails are sent again
+- ✅ **Decoupled** — if email fails than DB save will not get affected 
+- ✅ **Scalable** — multiple workers can work in parallel
