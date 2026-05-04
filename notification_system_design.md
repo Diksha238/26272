@@ -360,9 +360,9 @@ push_to_app(student_id, message)  # real-time notification
 ### Redesigned Pseudocode:
 ```
 function notify_all(student_ids: array, message: string):
-// Step 1: Bulk DB insert — ek query me saara data
+// Step 1: Bulk DB insert — All data in one query
 bulk_save_to_db(student_ids, message)
-// Step 2: Message Queue me push karo
+// Step 2:Push Message on Queue
 for student_id in student_ids:
 queue.push({
 student_id: student_id,
@@ -394,3 +394,29 @@ except PushFailed:
 - ✅ **Retry mechanism** — failed emails are sent again
 - ✅ **Decoupled** — if email fails than DB save will not get affected 
 - ✅ **Scalable** — multiple workers can work in parallel
+
+# Stage 6
+
+## Priority Inbox Implementation
+
+### Approach:
+Priority score = Type Weight + Recency Score
+
+**Weights:**
+- Placement = 3 (highest)
+- Result = 2
+- Event = 1 (lowest)
+
+**Recency:** Normalize Timestamp with weight 
+add — on same type latest notification comes on upfront.
+
+### How to maintain Top 10 efficiently as new notifications come in?
+Use a **Min-Heap of size N**:
+- Keep only top N notifiactions in the heap
+- When new notification comes → if it's score is greater than minimum → remove minimum,
+  insert new 
+- Time complexity: O(log N) per new notification
+- Space complexity: O(N)
+
+### Code:
+See `notification_app_be/priority_inbox.js`
