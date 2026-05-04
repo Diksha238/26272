@@ -188,3 +188,69 @@ SET isRead = true
 WHERE studentID = 'uuid-here'
 AND isRead = false;
 ```
+# Stage 3
+
+## Query Analysis & Optimization
+
+### Original Query:
+```sql
+SELECT * FROM notifications
+WHERE studentID = 1042 AND isRead = false
+ORDER BY createdAt DESC;
+```
+
+### Is this query accurate?
+yes, the query is logically correct  — the unread notifications of each student are fetched, first the newest.
+
+### Why is it slow?
+1. **No index** on `studentID` or `isRead` or `createdAt`
+   — full table is scanning all 5,000,000 rows 
+2. **SELECT \*** — all the unnecessary columns are also fetching
+3. **isRead = false** — on low cardinality column filter is slow
+
+### What would I change?
+1. 
+```sql
+CREATE INDEX idx_notifications_student_unread
+ON notifications(studentID, isRead, createdAt DESC);
+```
+2. 
+```sql
+SELECT id, notificationType, message, createdAt
+FROM notifications
+WHERE studentID = 1042 AND isRead = false
+ORDER BY createdAt DESC;
+```
+3. 
+```sql
+SELECT id, notificationType, message, createdAt
+FROM notifications
+WHERE studentID = 1042 AND isRead = false
+ORDER BY createdAt DESC
+LIMIT 20 OFFSET 0;
+```
+
+### Computation Cost After Fix:
+- Index : O(log n) instead of O(n)
+- 5M rows pe dramatically faster query
+
+---
+
+### Should we add indexes on every column?
+**NO.** 
+
+**Why?**
+- Every index takes wxtra storage
+- INSERT/UPDATE/DELETE operations gets slow
+  because on every write index also updates
+- Only apply index on frequently queried columns 
+
+---
+
+### Find all students who got Placement notification in last 7 days:
+```sql
+SELECT DISTINCT studentID
+FROM notifications
+WHERE notificationType = 'Placement'
+AND createdAt >= NOW() - INTERVAL '7 days';
+```
